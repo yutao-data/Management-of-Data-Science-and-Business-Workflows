@@ -7,7 +7,7 @@ import tarfile
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
-    'start_date': datetime(2023, 11, 22),
+    'start_date': datetime(2023, 1, 1),  # Start date is set to January 1, 2023
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': 1,
@@ -16,67 +16,68 @@ default_args = {
 
 dag = DAG('process_web_log',
           default_args=default_args,
-          description='Process web log file',
-          schedule_interval=timedelta(days=1))
+          description='DAG for processing web log',
+          schedule_interval='@daily',  # Runs once a day
+          catchup=False,  # Does not backfill
+          tags=['DSBW'])
 
-def scan_for_log():
-    log_path = '/home/cyt/ULB/DSBW/Management-of-Data-Science-and-Business-Workflows/Assignment_3/log.txt'
-    if os.path.exists(log_path):
-        return True
+# Update the path to where your log file and folders are located
+log_dir = '/home/cyt/airflow/logs/process_web_log'
+log_file = f'{log_dir}/log.txt'
+extracted_data_file = f'{log_dir}/extracted_data.txt'
+transformed_data_file = f'{log_dir}/transformed_data.txt'
+tar_file = f'{log_dir}/weblog.tar'
+
+def scan_for_log(**context):
+    if os.path.isfile(log_file):
+        return log_file
     else:
         raise ValueError("log.txt not found")
 
-def extract_data():
-    log_path = '/home/cyt/ULB/DSBW/Management-of-Data-Science-and-Business-Workflows/Assignment_3/log.txt'
-    extracted_data_path = '/home/cyt/ULB/DSBW/Management-of-Data-Science-and-Business-Workflows/Assignment_3/extracted_data.txt'
+def extract_data(**context):
+    task_instance = context['ti']
+    log_path = task_instance.xcom_pull(task_ids='scan_for_log')
+    
+    with open(log_path, 'r') as file, open(extracted_data_file, 'w') as out_file:
+        for line in file:
+            ip_address = line.split()[0]  # Assuming IP address is the first element in the log line
+            out_file.write(ip_address + '\n')
 
-    with open(log_path, 'r') as file:
-        lines = file.readlines()
+def transform_data(**context):
+    with open(extracted_data_file, 'r') as file, open(transformed_data_file, 'w') as out_file:
+        for line in file:
+            if '198.46.149.143' not in line:
+                out_file.write(line)
 
-    ip_addresses = [line.split()[0] for line in lines] # Assuming IP is the first element
-    with open(extracted_data_path, 'w') as file:
-        for ip in ip_addresses:
-            file.write(ip + '\n')
+def load_data(**context):
+    with tarfile.open(tar_file, 'w') as tar:
+        tar.add(transformed_data_file, arcname='transformed_data.txt')
 
-def transform_data():
-    extracted_data_path = '/home/cyt/ULB/DSBW/Management-of-Data-Science-and-Business-Workflows/Assignment_3/extracted_data.txt'
-    transformed_data_path = '/home/cyt/ULB/DSBW/Management-of-Data-Science-and-Business-Workflows/Assignment_3/transformed_data.txt'
-
-    with open(extracted_data_path, 'r') as file:
-        data = file.readlines()
-
-    data = [ip for ip in data if ip.strip() != '198.46.149.143']
-
-    with open(transformed_data_path, 'w') as file:
-        for ip in data:
-            file.write(ip)
-
-def load_data():
-    transformed_data_path = '/home/cyt/ULB/DSBW/Management-of-Data-Science-and-Business-Workflows/Assignment_3/transformed_data.txt'
-    tar_path = '/home/cyt/ULB/DSBW/Management-of-Data-Science-and-Business-Workflows/Assignment_3/weblog.tar'
-
-    with tarfile.open(tar_path, 'w') as tar:
-        tar.add(transformed_data_path, arcname='transformed_data.txt')
-
+# Define tasks
 scan_task = PythonOperator(
     task_id='scan_for_log',
     python_callable=scan_for_log,
+    provide_context=True,
     dag=dag)
 
 extract_task = PythonOperator(
     task_id='extract_data',
     python_callable=extract_data,
+    provide_context=True,
     dag=dag)
 
 transform_task = PythonOperator(
     task_id='transform_data',
     python_callable=transform_data,
+    provide_context=True,
     dag=dag)
 
 load_task = PythonOperator(
     task_id='load_data',
     python_callable=load_data,
+    provide_context=True,
     dag=dag)
 
+# Set up the workflow
 scan_task >> extract_task >> transform_task >> load_task
 

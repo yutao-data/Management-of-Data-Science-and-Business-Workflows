@@ -52,6 +52,14 @@ def transform_data(**context):
 def load_data(**context):
     with tarfile.open(tar_file, 'w') as tar:
         tar.add(transformed_data_file, arcname='transformed_data.txt')
+        
+def send_success_message(**context):
+    success_message = "Workflow executed successfully on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    success_file = os.path.join(log_dir, "workflow_success_message.txt")
+
+    with open(success_file, 'w') as file:
+        file.write(success_message)
+
 
 # Define tasks
 scan_task = PythonOperator(
@@ -78,5 +86,11 @@ load_task = PythonOperator(
     provide_context=True,
     dag=dag)
 
+success_message_task = PythonOperator(
+    task_id='send_success_message',
+    python_callable=send_success_message,
+    provide_context=True,
+    dag=dag)
+
 # Set up the workflow
-scan_task >> extract_task >> transform_task >> load_task
+scan_task >> extract_task >> transform_task >> load_task >> success_message_task

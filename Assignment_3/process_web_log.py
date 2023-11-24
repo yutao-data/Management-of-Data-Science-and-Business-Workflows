@@ -7,22 +7,22 @@ import tarfile
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
-    'start_date': datetime(2023, 1, 1),  # Start date is set to January 1, 2023
+    'start_date': datetime(2023, 1, 1),
     'email_on_failure': False,
     'email_on_retry': False,
     'retries': 1,
-    'retry_delay': timedelta(minutes=5),
+    'retry_delay': timedelta(seconds=1),
 }
 
 dag = DAG('process_web_log',
           default_args=default_args,
           description='DAG for processing web log',
-          schedule_interval='@daily',  # Runs once a day
-          catchup=False,  # Does not backfill
+          schedule_interval='@daily',
+          catchup=False,
           tags=['DSBW'])
 
-# Update the path to where your log file and folders are located
-log_dir = '/home/cyt/airflow/logs/process_web_log'
+# Update the path to the new location of your log file inside the Docker container
+log_dir = '/usr/local/airflow'
 log_file = f'{log_dir}/log.txt'
 extracted_data_file = f'{log_dir}/extracted_data.txt'
 transformed_data_file = f'{log_dir}/transformed_data.txt'
@@ -80,4 +80,3 @@ load_task = PythonOperator(
 
 # Set up the workflow
 scan_task >> extract_task >> transform_task >> load_task
-

@@ -55,14 +55,7 @@ def load_data(**context):
         tar.add(transformed_data_file, arcname='transformed_data.txt')
         
 def send_slack_message(**context):
-    webhook_url = "YOUR_SLACK_WEBHOOK_URL"
-    message = "Workflow executed successfully on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    data = {"text": message}
-    response = requests.post(webhook_url, json=data)
-    print("Message sent to Slack: Status code", response.status_code)
-
-def send_slack_message(**context):
-    webhook_url = "https://hooks.slack.com/services/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" 
+    webhook_url = "" # Hide the URL 
     message = "Workflow executed successfully on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     data = {"text": message}
     response = requests.post(webhook_url, json=data)

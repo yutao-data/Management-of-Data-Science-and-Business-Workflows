@@ -3,6 +3,7 @@ from airflow.operators.python_operator import PythonOperator
 from datetime import datetime, timedelta
 import os
 import tarfile
+import requests
 
 default_args = {
     'owner': 'airflow',
@@ -53,12 +54,19 @@ def load_data(**context):
     with tarfile.open(tar_file, 'w') as tar:
         tar.add(transformed_data_file, arcname='transformed_data.txt')
         
-def send_success_message(**context):
-    success_message = "Workflow executed successfully on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    success_file = os.path.join(log_dir, "workflow_success_message.txt")
+def send_slack_message(**context):
+    webhook_url = "YOUR_SLACK_WEBHOOK_URL"
+    message = "Workflow executed successfully on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data = {"text": message}
+    response = requests.post(webhook_url, json=data)
+    print("Message sent to Slack: Status code", response.status_code)
 
-    with open(success_file, 'w') as file:
-        file.write(success_message)
+def send_slack_message(**context):
+    webhook_url = "https://hooks.slack.com/services/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" 
+    message = "Workflow executed successfully on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data = {"text": message}
+    response = requests.post(webhook_url, json=data)
+    print("Message sent to Slack: Status code", response.status_code)
 
 
 # Define tasks
@@ -88,9 +96,11 @@ load_task = PythonOperator(
 
 success_message_task = PythonOperator(
     task_id='send_success_message',
-    python_callable=send_success_message,
+    python_callable=send_slack_message,  
     provide_context=True,
     dag=dag)
 
+
 # Set up the workflow
 scan_task >> extract_task >> transform_task >> load_task >> success_message_task
+
